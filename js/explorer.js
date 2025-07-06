@@ -53,16 +53,28 @@ export function initExplorer(db, appId, collectionFn, queryFn, getDocsFn) {
 
     if (!orbDisplayArea || !commandInput) {
         console.error("Missing DOM elements for Explorer mode.");
+        document.getElementById('firebase-status').textContent = "Explorer Mode: Failed to initialize (missing DOM elements)";
         return;
     }
 
-    waitForDisplayArea(orbDisplayArea, () => setupScene(orbDisplayArea));
-    setupLighting();
-    setupOrbsAreaInteraction(orbDisplayArea, commandInput);
-    animate();
+    try {
+        waitForDisplayArea(orbDisplayArea, () => setupScene(orbDisplayArea));
+        setupLighting();
+        setupOrbsAreaInteraction(orbDisplayArea, commandInput);
+        animate();
+    } catch (error) {
+        console.error("Failed to initialize Three.js:", error.message);
+        document.getElementById('command-input').placeholder = "Error: Failed to initialize 3D visualization";
+    }
 }
 
 function setupScene(orbDisplayArea) {
+    if (!THREE) {
+        console.error("Three.js not loaded.");
+        document.getElementById('command-input').placeholder = "Error: Three.js not loaded";
+        return;
+    }
+
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
 
@@ -403,7 +415,7 @@ function animate() {
     TWEENUpdate();
     if (composer) {
         composer.render();
-    } else {
+    } else if (renderer) {
         renderer.render(scene, camera);
     }
 }
