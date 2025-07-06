@@ -1,66 +1,44 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orbs System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         const firebaseConfig = {
-            apiKey: "AIzaSyCYiaAH3wRzW6557xLJQ6zm9-RuSKBWWuM",
-            authDomain: "orbdefine.firebaseapp.com",
-            projectId: "orbdefine",
-            storageBucket: "orbdefine.firebasestorage.app",
-            messagingSenderId: "247935667317",
-            appId: "1:247935667317:web:2dff8b9b44848553fafc3c",
-            measurementId: "G-0VGTHSL2VZ"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID",
+            measurementId: "YOUR_MEASUREMENT_ID"
         };
-        initializeApp(firebaseConfig);
+        try {
+            initializeApp(firebaseConfig);
+        } catch (error) {
+            console.error("Firebase initialization failed:", error.message);
+            document.getElementById('firebase-status').textContent = "Firebase Status: Failed to initialize";
+        }
     </script>
     <!-- Papa Parse for CSV import -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Import map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+                "three/examples/jsm/postprocessing/EffectComposer.js": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/EffectComposer.js",
+                "three/examples/jsm/postprocessing/RenderPass.js": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/RenderPass.js",
+                "three/examples/jsm/postprocessing/UnrealBloomPass.js": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/postprocessing/UnrealBloomPass.js"
+            }
+        }
+    </script>
 </head>
 <body class="flex flex-col min-h-screen bg-gray-900 text-gray-200">
     <header class="header">
@@ -137,13 +115,16 @@
     <script type="module" src="js/firebase-init.js"></script>
     <script type="module">
         import { initializeFirebase } from './js/firebase-init.js';
-        // Custom confirmation modal (simplified for now)
         async function showConfirmModal(title, message) {
             return confirm(`${title}: ${message}`);
         }
-        initializeFirebase(showConfirmModal);
+        try {
+            initializeFirebase(showConfirmModal);
+        } catch (error) {
+            console.error("Failed to initialize Firebase:", error.message);
+            document.getElementById('firebase-status').textContent = "Firebase Status: Failed to initialize";
+        }
 
-        // Toggle between Admin and Explorer modes
         const adminBtn = document.getElementById('admin-mode-btn');
         const explorerBtn = document.getElementById('explorer-mode-btn');
         const adminPanel = document.getElementById('admin-panel');
