@@ -1,0 +1,170 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbs System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyCYiaAH3wRzW6557xLJQ6zm9-RuSKBWWuM",
+            authDomain: "orbdefine.firebaseapp.com",
+            projectId: "orbdefine",
+            storageBucket: "orbdefine.firebasestorage.app",
+            messagingSenderId: "247935667317",
+            appId: "1:247935667317:web:2dff8b9b44848553fafc3c",
+            measurementId: "G-0VGTHSL2VZ"
+        };
+        initializeApp(firebaseConfig);
+    </script>
+    <!-- Papa Parse for CSV import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+<body class="flex flex-col min-h-screen bg-gray-900 text-gray-200">
+    <header class="header">
+        <h1 class="text-2xl font-bold text-white">Orbs System</h1>
+        <div>
+            <button id="admin-mode-btn" class="nav-button">Admin Mode</button>
+            <button id="explorer-mode-btn" class="nav-button">Explorer Mode</button>
+        </div>
+    </header>
+
+    <main class="content-area">
+        <div id="main-panel" class="rounded-card">
+            <div id="welcome-message" class="text-center">
+                <h2 class="text-xl font-semibold mb-4">Welcome to Orbs!</h2>
+                <p class="mb-4">Select a mode above to begin.</p>
+                <p id="firebase-status" class="text-gray-400">Firebase Status: Initializing...</p>
+                <p id="user-id" class="text-gray-400">User ID: N/A</p>
+            </div>
+
+            <!-- Admin Panel (hidden by default) -->
+            <div id="admin-panel" class="hidden">
+                <h2 class="text-xl font-semibold mb-4">Admin Panel</h2>
+                <form id="term-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Term</label>
+                        <input type="text" id="term" class="w-full bg-gray-600 border border-gray-500 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Note</label>
+                        <textarea id="note" class="w-full bg-gray-600 border border-gray-500 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500" rows="2"></textarea>
+                    </div>
+                    <div id="definitions-container" class="space-y-4"></div>
+                    <button type="button" id="add-definition-btn" class="bg-cyan-500 text-white px-4 py-2 rounded-md hover:bg-cyan-600">Add Definition</button>
+                    <button type="submit" id="save-term-btn" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:bg-gray-500" disabled>
+                        <span id="save-btn-text">Save Term</span>
+                        <svg id="save-spinner" class="hidden w-5 h-5 inline-block ml-2 animate-spin" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 01-8 8z"></path>
+                        </svg>
+                    </button>
+                </form>
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-gray-300">Import CSV</label>
+                    <input type="file" id="csv-file-input" accept=".csv" class="w-full bg-gray-600 border border-gray-500 rounded-md px-3 py-2 text-white">
+                    <button id="import-csv-btn" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Import CSV</button>
+                    <button id="clear-database-btn" class="mt-2 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Clear Database</button>
+                    <p id="import-status-message" class="mt-2 text-sm"></p>
+                </div>
+                <div class="mt-6">
+                    <button id="refresh-terms-btn" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">Refresh Terms</button>
+                    <div class="overflow-x-auto mt-4">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-gray-700">
+                                    <th class="py-3 px-6">Term</th>
+                                    <th class="py-3 px-6 text-center">Definitions</th>
+                                    <th class="py-3 px-6 text-center">Tags</th>
+                                </tr>
+                            </thead>
+                            <tbody id="terms-matrix-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Explorer Panel (hidden by default) -->
+            <div id="explorer-panel" class="hidden">
+                <div id="orb-display-area" class="w-full h-[500px] bg-gray-800 rounded-md"></div>
+                <input id="command-input" type="text" class="w-full bg-gray-600 border border-gray-500 rounded-md px-3 py-2 mt-4 text-white focus:outline-none focus:ring-1 focus:ring-cyan-500" placeholder="Enter command (e.g., run:, clear:, list:)">
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="js/firebase-init.js"></script>
+    <script type="module">
+        import { initializeFirebase } from './js/firebase-init.js';
+        // Custom confirmation modal (simplified for now)
+        async function showConfirmModal(title, message) {
+            return confirm(`${title}: ${message}`);
+        }
+        initializeFirebase(showConfirmModal);
+
+        // Toggle between Admin and Explorer modes
+        const adminBtn = document.getElementById('admin-mode-btn');
+        const explorerBtn = document.getElementById('explorer-mode-btn');
+        const adminPanel = document.getElementById('admin-panel');
+        const explorerPanel = document.getElementById('explorer-panel');
+        const welcomeMessage = document.getElementById('welcome-message');
+
+        adminBtn.addEventListener('click', () => {
+            welcomeMessage.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+            explorerPanel.classList.add('hidden');
+            adminBtn.classList.add('bg-cyan-500', 'hover:bg-cyan-600');
+            explorerBtn.classList.remove('bg-cyan-500', 'hover:bg-cyan-600');
+        });
+
+        explorerBtn.addEventListener('click', () => {
+            welcomeMessage.classList.add('hidden');
+            adminPanel.classList.add('hidden');
+            explorerPanel.classList.remove('hidden');
+            explorerBtn.classList.add('bg-cyan-500', 'hover:bg-cyan-600');
+            adminBtn.classList.remove('bg-cyan-500', 'hover:bg-cyan-600');
+        });
+    </script>
+</body>
+</html>
